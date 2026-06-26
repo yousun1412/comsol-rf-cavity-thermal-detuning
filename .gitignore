@@ -1,0 +1,23 @@
+# COMSOL binary/project state files
+*.mph
+*.mph.lock
+*.mph.recovery
+*.mph.status
+*.mphbin
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.class
+
+# Large or license-sensitive local assets
+models/
+references/
+results/raw/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+~$*
+

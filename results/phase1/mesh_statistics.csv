@@ -1,0 +1,10 @@
+﻿metric,value
+mesh_tag,mesh1
+num_elements,428
+num_vertices,241
+has_problems,false
+degrees_of_freedom,3101
+comsol_log_total_time_s,16
+external_batch_elapsed_s,18.935
+peak_physical_memory_MB,753
+peak_virtual_memory_MB,849
