@@ -1,50 +1,75 @@
-# COMSOL RF Cavity Thermal Detuning Benchmark
+# RF Cavity Thermal Detuning Benchmark in COMSOL
 
-This repository documents a staged COMSOL benchmark for RF cavity multiphysics and thermal detuning analysis.
+This repository contains a staged COMSOL study of a pillbox-like RF cavity, starting from an eigenfrequency benchmark and ending with an approximate thermal-detuning check.
 
-The project follows a conservative verification ladder:
+The project was built as a validation exercise rather than a single "all-in-one" multiphysics model. Each step has a small acceptance test: frequency agreement, heat balance, thermal-expansion scale, power/cooling trends, detuning comparison, and mesh sensitivity.
+
+## Why This Project
+
+In an RF cavity, electromagnetic fields can create wall loss. Wall loss heats the cavity, the cavity expands, and the RF eigenfrequency shifts. That chain sounds straightforward, but it is easy to make a simulation look coupled without checking whether each link is physically sensible.
+
+So I split the workflow into separate, testable pieces:
 
 ```text
 RF eigenfrequency
--> standalone thermal
--> standalone structural expansion
--> RF-to-thermal heating
--> thermal-to-structural expansion
--> thermal detuning by RF eigenfrequency comparison
--> mesh-sensitivity refinement
+standalone thermal
+standalone structural expansion
+RF wall loss -> thermal
+thermal field -> structural expansion
+deformed/equivalent geometry -> RF eigenfrequency
+RF mesh sensitivity
 ```
 
-## Motivation
+The main point is traceability: every later result has a documented source and a numerical sanity check behind it.
 
-Accelerator RF cavities can experience wall heating, thermal expansion, and resonant-frequency shift under high-frequency electromagnetic fields. Instead of treating the full coupled workflow as one opaque simulation, this project decomposes the problem into independently checkable phases.
+## What Is In The Repository
 
-The goal is not to build a new FEM solver. The goal is to create a reproducible CAE validation workflow with clear assumptions, numerical checks, and engineering boundaries.
+```text
+docs/       Project definition and benchmark notes
+reports/    Phase-by-phase writeups
+results/    Exported CSV tables and figures
+tools/      COMSOL Java API scripts used during the study
+handoff/    Notes for continuing the work
+```
 
-## Highlights
+The most useful files to read first are:
 
-- Reproduced an official COMSOL RF cavity eigenfrequency benchmark with relative error on the order of `1e-6`.
-- Built standalone thermal and structural baselines before introducing coupling.
-- Derived an RF wall-loss heat source from magnetic-field magnitude and copper surface resistance.
-- Mapped RF heating into temperature, temperature into structural expansion, and equivalent geometry back into RF eigenfrequency.
-- Estimated thermal detuning using an equivalent parameterized geometry approximation.
-- Verified the detuning result with coarse / normal / fine RF mesh sensitivity; detuning spread stayed below `1 Hz` over an approximately `31 kHz` shift.
+- `reports/phase1_em_benchmark.md`
+- `reports/phase4b_field_derived_rf_loss.md`
+- `reports/phase5_thermal_structural_coupling.md`
+- `reports/phase6_thermal_detuning.md`
+- `reports/phase7_detuning_refinement.md`
 
-## Project Phases
+## Validation Flow
 
-| Phase | Scope | Key output |
+| Phase | What was checked | Main artifact |
 | --- | --- | --- |
-| Phase 1 | RF eigenfrequency benchmark | `reports/phase1_em_benchmark.md` |
-| Phase 2 | Standalone thermal benchmark | `reports/phase2_thermal_benchmark.md` |
-| Phase 3 | Standalone structural expansion | `reports/phase3_structural_benchmark.md` |
-| Phase 4 | RF-to-thermal with constructed wall loss | `reports/phase4_rf_thermal_coupling.md` |
-| Phase 4b | Field-derived RF surface loss | `reports/phase4b_field_derived_rf_loss.md` |
-| Phase 5 | Thermal-to-structural coupling | `reports/phase5_thermal_structural_coupling.md` |
-| Phase 6 | Thermal detuning by equivalent geometry | `reports/phase6_thermal_detuning.md` |
-| Phase 7 | Detuning mesh-sensitivity refinement | `reports/phase7_detuning_refinement.md` |
+| 1 | RF eigenfrequency benchmark against COMSOL reference | `reports/phase1_em_benchmark.md` |
+| 2 | Thermal model with prescribed heat flux and convection | `reports/phase2_thermal_benchmark.md` |
+| 3 | Copper thermal expansion under controlled temperature rise | `reports/phase3_structural_benchmark.md` |
+| 4 | RF-to-thermal mapping with a normalized wall-loss shape | `reports/phase4_rf_thermal_coupling.md` |
+| 4b | Field-derived wall loss from RF magnetic field magnitude | `reports/phase4b_field_derived_rf_loss.md` |
+| 5 | Temperature-field transfer into Solid Mechanics | `reports/phase5_thermal_structural_coupling.md` |
+| 6 | RF frequency shift after equivalent geometry feedback | `reports/phase6_thermal_detuning.md` |
+| 7 | RF mesh sensitivity of the detuning result | `reports/phase7_detuning_refinement.md` |
 
-## Representative Results
+## Key Checks
 
-Phase 6 uses equivalent parameterized geometry feedback:
+The cold RF eigenfrequency benchmark matches the COMSOL reference at roughly the `1e-6` relative-error level.
+
+The thermal stages check energy balance by comparing integrated heat input and convective heat removal. The structural stages compare displacement scale against `alpha * DeltaT * L`.
+
+For RF heating, the field-derived wall-loss expression is:
+
+```text
+q = 0.5 * Rs * |H_t|^2
+```
+
+The raw eigenmode field amplitude is arbitrary, so the wall loss is normalized to prescribed total-power cases before being used as a heat source.
+
+## Thermal Detuning Result
+
+The current detuning workflow uses an equivalent geometry feedback:
 
 ```text
 a_hot      = a_cold      + average inner-wall radial displacement
@@ -52,14 +77,18 @@ b_hot      = b_cold      + average outer-wall radial displacement
 height_hot = height_cold + average top-wall axial displacement
 ```
 
-For the maximum thermal-deformation case, the RF frequency shift is approximately:
+For the largest thermal case in this study, the RF frequency shift is about:
 
 ```text
 delta_f ~= -31.44 kHz
 relative detuning ~= -2.1e-5
 ```
 
-Phase 7 shows the detuning result is stable under RF mesh refinement:
+This is not presented as a high-fidelity deformed-boundary result. It is an engineering approximation that closes the loop from thermal expansion back to RF frequency.
+
+## Mesh Sensitivity
+
+To check whether the detuning result was just a mesh artifact, the cold/hot RF comparison was repeated with three RF mesh levels:
 
 ```text
 coarse: -31.4364 kHz
@@ -67,41 +96,43 @@ normal: -31.4358 kHz
 fine:   -31.4357 kHz
 ```
 
-The mesh-induced detuning spread is about `0.63 Hz`, so RF mesh resolution is not the dominant uncertainty in the current approximation.
+The spread is about `0.63 Hz` over a `31 kHz`-level frequency shift. Within the equivalent-geometry approximation, RF mesh resolution is not the dominant uncertainty.
 
-## Important Boundary
+## Figures
 
-This is not a full deformed-boundary RF solve.
+Thermal detuning comparison:
 
-The current thermal-detuning workflow uses an equivalent parameterized geometry approximation. It updates cavity geometry parameters from representative Phase 5 displacement metrics, then reruns the RF eigenfrequency problem.
+![Cold vs hot RF frequency](results/phase6/cold_vs_hot_frequency.png)
 
-A higher-fidelity future extension would map the full deformed boundary or deformed mesh into the RF model.
+Mesh sensitivity:
 
-## Repository Contents
-
-```text
-docs/       Benchmark definition and project notes
-reports/    Phase-by-phase technical reports
-results/    Exported CSV tables and figures
-tools/      COMSOL Java API scripts used for model generation and extraction
-handoff/    Continuation notes for future work
-```
+![Detuning mesh sensitivity](results/phase7/detuning_mesh_sensitivity.png)
 
 ## What Is Not Included
 
-COMSOL model binaries are intentionally excluded:
+COMSOL binary model files are not committed:
 
 ```text
 *.mph
 *.mph.lock
 *.mph.recovery
+*.mph.status
 ```
 
-The repository also excludes COMSOL official application-library model files, official PDFs, and large third-party reference repositories. This avoids licensing ambiguity and keeps the Git repository reviewable.
+The repository also excludes COMSOL application-library files, COMSOL PDFs, and large third-party reference repositories. This keeps the repo small and avoids redistributing files whose license status is not mine to decide.
 
-## Reproducibility Notes
+The included Java scripts and exported CSV/PNG files are enough to show the modeling logic, numerical checks, and result trail.
 
-The Java scripts under `tools/` were run with COMSOL Multiphysics 6.4. They are intended as automation references for rebuilding the staged workflow in a local COMSOL installation.
+## Limitations
 
-CSV and PNG outputs are included so that the numerical validation trail remains visible even without committing proprietary binary model files.
+- The thermal-detuning step uses equivalent geometry parameters, not a full deformed mesh.
+- The field-derived wall loss is normalized because RF eigenmode amplitudes are arbitrary.
+- Cross-software validation against HFSS, CST, ACE3P, Elmer, or another solver has not been done.
+- The project is a benchmark workflow, not an industrial RF cavity design sign-off.
+
+## Possible Next Steps
+
+- Map the full deformed RF boundary instead of reducing deformation to `a`, `b`, and `height`.
+- Add a perturbation-theory estimate for the frequency shift.
+- Repeat the same staged workflow on a more realistic cavity shape.
 
